@@ -3,6 +3,7 @@
  'use strict';
  const bank=window.SDO_BANK,E=window.TrainerEngine,app=document.querySelector('#app');
  const byId=new Map(bank.questions.map(q=>[q.id,q]));
+ for(const [oldId,id] of Object.entries(bank.aliases||{})){const q=byId.get(id);if(q)byId.set(oldId,{...q,id:oldId});}
  const STORAGE='teplovoz-2345-full-v2';let session=null,settings={shuffle:false,feedback:'each'};
  const HISTORY='teplovoz-2345-history-v1';
  const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -19,10 +20,10 @@
  function routeTop(){window.scrollTo({top:0,behavior:'instant'});}
  function home(){session=null;const old=load();app.innerHTML=`
  ${old&&!old.finished?`<div class="resume"><div><strong>Вы уже начали подготовку</strong><p>Сохранено ${Object.keys(old.answers).length} из ${old.ids.length} ответов.</p></div>${button('Продолжить →','resume','primary')}</div>`:''}
- <section class="setup"><h1>Настройки теста</h1><p class="muted">Машинист тепловоза 2–1 класса · ТЭ10МК<br>Все 381 вопрос. Без ограничения времени.</p><div class="setup-controls">
+ <section class="setup"><h1>Настройки теста</h1><p class="muted">Машинист тепловоза 2–1 класса · ТЭ10МК<br>Вся база: ${bank.questions.length}. Без ограничения времени.</p><div class="setup-controls">
  <div class="mode-tabs" role="group" aria-label="Порядок вопросов"><button data-mode="ordered" class="mode ${!settings.shuffle?'active':''}" aria-pressed="${!settings.shuffle}"><strong>По порядку</strong><span>По разделам</span></button><button data-mode="random" class="mode ${settings.shuffle?'active':''}" aria-pressed="${settings.shuffle}"><strong>Вразнобой</strong><span>Случайный порядок</span></button></div>
  <label class="toggle"><span><strong>Проверять каждый ответ</strong><small>Иначе результат будет показан в конце</small></span><input id="feedback" type="checkbox" ${settings.feedback==='each'?'checked':''}></label>
- <div class="start-line">${button('Начать тест','start','primary')}</div></div><div class="history-entry">${button(`История попыток (${history().length})`,'history','secondary')}</div><p class="source-note">Ответы на все 381 вопрос подтверждены результатами СДО.<br>Прогресс и история сохраняются только в этом браузере.</p></section>`;
+ <div class="start-line">${button('Начать тест','start','primary')}</div></div><div class="history-entry">${button(`История попыток (${history().length})`,'history','secondary')}</div><p class="source-note">Все ответы подтверждены результатами СДО.<br>Прогресс и история сохраняются только в этом браузере.</p></section>`;
  app.querySelectorAll('[data-mode]').forEach(el=>el.onclick=()=>{settings.shuffle=el.dataset.mode==='random';home();});
  app.querySelector('#feedback').onchange=readSettings;
  bindActions();
@@ -37,7 +38,7 @@
  <div class="session-heading"><button class="text-button" data-action="home">← К настройкам</button><div class="session-label">${session.settings.shuffle?'Вразнобой':'По порядку'} · ${session.settings.feedback==='each'?'Проверка каждого':'Проверка в конце'}</div></div>
  <div class="study-layout"><section class="question-pane"><div class="question-progress"><span>ВОПРОС <b>${session.index+1}</b> / ${session.ids.length}</span><span>${q.id}</span></div><div class="progress-track"><div style="width:${done/session.ids.length*100}%"></div></div><p class="question-section">${esc(q.section)}</p><h1 class="question-title" tabindex="-1">${esc(q.text)}</h1><p class="question-hint">${readableType[q.type]}${q.type==='order'?' · используйте стрелки ↑ и ↓':''}</p>
  <div class="options ${q.type==='order'?'order-options':''}">${q.type==='order'?(value.length?value:q.options.map((_,i)=>i)).map((option,pos)=>`<div class="order-option"><span class="position">${pos+1}</span><span>${esc(q.options[option])}</span><div class="arrows"><button data-move="${pos}" data-dir="-1" aria-label="Переместить пункт ${pos+1} вверх" ${locked||pos===0?'disabled':''}>↑</button><button data-move="${pos}" data-dir="1" aria-label="Переместить пункт ${pos+1} вниз" ${locked||pos===q.options.length-1?'disabled':''}>↓</button></div></div>`).join(''):q.options.map((option,i)=>`<label class="option ${value.includes(i)?'selected':''} ${locked&&q.answer.includes(i)?'is-correct':''}"><input type="${q.type==='single'?'radio':'checkbox'}" name="answer" value="${i}" ${value.includes(i)?'checked':''} ${locked?'disabled':''}><span>${esc(option)}</span>${locked&&q.answer.includes(i)?'<b class="checkmark" aria-label="Правильный вариант">✓</b>':''}</label>`).join('')}</div>
- ${/\[ID \d+\]/.test(q.options.join(' '))?'<p class="muted">Пометки ID различают одинаково подписанные пункты исходного теста.</p>':''}
+ ${/\[повтор \d+\]/.test(q.options.join(' '))?'<p class="muted">Пометки «повтор» различают пункты с одинаковым текстом в исходном тесте.</p>':''}
  ${q.type==='order'&&!locked?button(value.length?'Порядок зафиксирован ✓':'Зафиксировать этот порядок','order-confirm','secondary','id="order-confirm"'):''}
  <div id="feedback-area">${locked?feedback(q):''}</div>
  <div class="question-actions">${button('← Назад','prev','secondary',session.index===0?'disabled':'')}<div>${session.settings.feedback==='each'&&!locked?button('Проверить ответ','check','primary',E.answered(q,value)?'':'disabled'):''}${session.index<session.ids.length-1?button('Далее →','next',session.settings.feedback==='each'&&!locked?'secondary':'primary'):button('Завершить попытку','finish','primary')}</div></div>
